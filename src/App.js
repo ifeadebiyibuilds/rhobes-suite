@@ -145,14 +145,34 @@ function Dashboard({ orders, ordersLoading, customers, staff }) {
   );
 }
 
-function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignTailor }) {
+function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignTailor, updateOrder }) {
   const tailors = staff.filter(s => s.role === "Tailor");
   const [filter, setFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newOrder, setNewOrder] = useState({ client: "", garment: "", amount: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ client: "", garment: "", amount: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   const filtered = filter === "all" ? orders : orders.filter(o => o.stage === filter);
+
+  const startEdit = (o) => {
+    setEditingId(o.dbId);
+    setEditForm({ client: o.client, garment: o.garment, amount: String(o.amount) });
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.client || !editForm.garment) return;
+    setEditSaving(true);
+    try {
+      await updateOrder(editingId, editForm);
+      setEditingId(null);
+    } catch (e) {
+      alert("Couldn't save those changes: " + e.message);
+    }
+    setEditSaving(false);
+  };
 
   const submitOrder = async () => {
     if (!newOrder.client || !newOrder.garment) return;
@@ -221,30 +241,56 @@ function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignT
         <div style={{ padding: "30px 0", textAlign: "center", color: C.muted, fontSize: 13 }}>No orders yet — add the first one above.</div>
       ) : filtered.map(o => (
         <Card key={o.dbId} style={{ marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          {editingId === o.dbId ? (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{o.client}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{o.garment} · {o.id}</div>
-              <select value={o.tailorId || ""} onChange={e => handleAssign(o, e.target.value)}
-                style={{ marginTop: 6, fontSize: 11, padding: "4px 8px", borderRadius: 6,
-                  border: `1px solid ${C.border}`, background: C.surfaceAlt,
-                  color: o.tailor ? C.muted : C.red, cursor: "pointer" }}>
-                <option value="">⚠ Unassigned</option>
-                {tailors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
+              {[["Client name", "client"], ["Garment type", "garment"], ["Amount (₦)", "amount"]].map(([ph, k]) => (
+                <input key={k} placeholder={ph} value={editForm[k]}
+                  onChange={e => setEditForm({ ...editForm, [k]: e.target.value })}
+                  style={{ display: "block", width: "100%", marginBottom: 8, padding: "8px 12px", borderRadius: 8,
+                    border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.text, fontSize: 13, boxSizing: "border-box" }} />
+              ))}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={saveEdit} disabled={editSaving} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: C.gold, color: "#000", fontSize: 13, cursor: "pointer", fontWeight: 700 }}>
+                  {editSaving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setEditingId(null)} style={{ padding: "8px 20px", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              {pill(STAGE_LABEL[o.stage], STAGE_COLOR[o.stage])}
-              <div style={{ fontSize: 13, color: C.gold, fontWeight: 700, marginTop: 6 }}>{fmt(o.amount)}</div>
-              <div style={{ fontSize: 11, color: o.days > 7 ? C.red : C.muted, marginTop: 2 }}>{o.days}d elapsed</div>
-            </div>
-          </div>
-          {o.stage !== "delivered" && (
-            <button onClick={() => advance(o)}
-              style={{ marginTop: 10, padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.gold}44`,
-                background: C.goldBg, color: C.gold, fontSize: 11, cursor: "pointer" }}>
-              Advance Stage →
-            </button>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{o.client}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{o.garment} · {o.id}</div>
+                  <select value={o.tailorId || ""} onChange={e => handleAssign(o, e.target.value)}
+                    style={{ marginTop: 6, fontSize: 11, padding: "4px 8px", borderRadius: 6,
+                      border: `1px solid ${C.border}`, background: C.surfaceAlt,
+                      color: o.tailor ? C.muted : C.red, cursor: "pointer" }}>
+                    <option value="">⚠ Unassigned</option>
+                    {tailors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  {pill(STAGE_LABEL[o.stage], STAGE_COLOR[o.stage])}
+                  <div style={{ fontSize: 13, color: C.gold, fontWeight: 700, marginTop: 6 }}>{fmt(o.amount)}</div>
+                  <div style={{ fontSize: 11, color: o.days > 7 ? C.red : C.muted, marginTop: 2 }}>{o.days}d elapsed</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {o.stage !== "delivered" && (
+                  <button onClick={() => advance(o)}
+                    style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.gold}44`,
+                      background: C.goldBg, color: C.gold, fontSize: 11, cursor: "pointer" }}>
+                    Advance Stage →
+                  </button>
+                )}
+                <button onClick={() => startEdit(o)}
+                  style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.border}`,
+                    background: "transparent", color: C.muted, fontSize: 11, cursor: "pointer" }}>
+                  ✏️ Edit
+                </button>
+              </div>
+            </>
           )}
         </Card>
       ))}
@@ -745,7 +791,7 @@ function AppShell() {
 
       <div style={{ padding: "20px 16px 40px" }}>
         {page === "dashboard" && <Dashboard orders={ordersState.orders} ordersLoading={ordersState.loading} customers={customersState.customers} staff={staffState.staff} />}
-        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} staff={staffState.staff} assignTailor={ordersState.assignTailor} />}
+        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} staff={staffState.staff} assignTailor={ordersState.assignTailor} updateOrder={ordersState.updateOrder} />}
         {page === "production" && <ProductionBoard orders={ordersState.orders} loading={ordersState.loading} />}
         {page === "inventory" && <Inventory inventory={inventoryState.inventory} loading={inventoryState.loading} error={inventoryState.error} addItem={inventoryState.addItem} />}
         {page === "crm" && <CRM customers={customersState.customers} loading={customersState.loading} error={customersState.error} />}
