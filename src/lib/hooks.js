@@ -73,7 +73,26 @@ export function useOrders() {
     await refresh();
   }, [refresh]);
 
-  return { orders, loading, error, refresh, addOrder, advanceStage, assignTailor };
+  // Same find-or-create-customer logic as addOrder, so fixing a typo'd
+  // client name on an existing order works the same way as entering one.
+  const updateOrder = useCallback(async (dbId, { client, garment, amount }) => {
+    const { data: existing } = await supabase
+      .from("customers").select("id").ilike("name", client).maybeSingle();
+    let customerId = existing?.id;
+    if (!customerId) {
+      const { data: created, error: custErr } = await supabase
+        .from("customers").insert({ name: client }).select("id").single();
+      if (custErr) throw custErr;
+      customerId = created.id;
+    }
+    const { error } = await supabase.from("orders")
+      .update({ customer_id: customerId, garment, amount: Number(amount) || 0 })
+      .eq("id", dbId);
+    if (error) throw error;
+    await refresh();
+  }, [refresh]);
+
+  return { orders, loading, error, refresh, addOrder, advanceStage, assignTailor, updateOrder };
 }
 
 // ── CUSTOMERS ──────────────────────────────────────────────────────
