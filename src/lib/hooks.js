@@ -92,7 +92,13 @@ export function useOrders() {
     await refresh();
   }, [refresh]);
 
-  return { orders, loading, error, refresh, addOrder, advanceStage, assignTailor, updateOrder };
+  const deleteOrder = useCallback(async (dbId) => {
+    const { error } = await supabase.from("orders").delete().eq("id", dbId);
+    if (error) throw error;
+    await refresh();
+  }, [refresh]);
+
+  return { orders, loading, error, refresh, addOrder, advanceStage, assignTailor, updateOrder, deleteOrder };
 }
 
 // ── CUSTOMERS ──────────────────────────────────────────────────────
