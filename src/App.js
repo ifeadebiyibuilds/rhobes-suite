@@ -145,7 +145,8 @@ function Dashboard({ orders, ordersLoading, customers, staff }) {
   );
 }
 
-function Orders({ orders, loading, error, addOrder, advanceStage }) {
+function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignTailor }) {
+  const tailors = staff.filter(s => s.role === "Tailor");
   const [filter, setFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -171,6 +172,11 @@ function Orders({ orders, loading, error, addOrder, advanceStage }) {
     const next = STAGES[Math.min(idx + 1, STAGES.length - 1)];
     try { await advanceStage(o.dbId, next); }
     catch (e) { alert("Couldn't update that order: " + e.message); }
+  };
+
+  const handleAssign = async (o, tailorId) => {
+    try { await assignTailor(o.dbId, tailorId || null); }
+    catch (e) { alert("Couldn't assign a tailor: " + e.message); }
   };
 
   return (
@@ -219,9 +225,13 @@ function Orders({ orders, loading, error, addOrder, advanceStage }) {
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{o.client}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{o.garment} · {o.id}</div>
-              <div style={{ fontSize: 12, color: o.tailor ? C.muted : C.red, marginTop: 4 }}>
-                {o.tailor ? "👤 " + o.tailor : "⚠ Unassigned"}
-              </div>
+              <select value={o.tailorId || ""} onChange={e => handleAssign(o, e.target.value)}
+                style={{ marginTop: 6, fontSize: 11, padding: "4px 8px", borderRadius: 6,
+                  border: `1px solid ${C.border}`, background: C.surfaceAlt,
+                  color: o.tailor ? C.muted : C.red, cursor: "pointer" }}>
+                <option value="">⚠ Unassigned</option>
+                {tailors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </div>
             <div style={{ textAlign: "right" }}>
               {pill(STAGE_LABEL[o.stage], STAGE_COLOR[o.stage])}
@@ -735,7 +745,7 @@ function AppShell() {
 
       <div style={{ padding: "20px 16px 40px" }}>
         {page === "dashboard" && <Dashboard orders={ordersState.orders} ordersLoading={ordersState.loading} customers={customersState.customers} staff={staffState.staff} />}
-        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} />}
+        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} staff={staffState.staff} assignTailor={ordersState.assignTailor} />}
         {page === "production" && <ProductionBoard orders={ordersState.orders} loading={ordersState.loading} />}
         {page === "inventory" && <Inventory inventory={inventoryState.inventory} loading={inventoryState.loading} error={inventoryState.error} addItem={inventoryState.addItem} />}
         {page === "crm" && <CRM customers={customersState.customers} loading={customersState.loading} error={customersState.error} />}
@@ -782,6 +792,8 @@ function Gate() {
     );
   }
   if (profile.role === "tailor") {
+    // Phase 4 builds the real Tailor Portal. For now, tailors can sign in
+    // but don't get the owner's full nav.
     return (
       <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: C.text, padding: 20, textAlign: "center" }}>
         <div>
