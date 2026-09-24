@@ -145,7 +145,7 @@ function Dashboard({ orders, ordersLoading, customers, staff }) {
   );
 }
 
-function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignTailor, updateOrder }) {
+function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignTailor, updateOrder, deleteOrder }) {
   const tailors = staff.filter(s => s.role === "Tailor");
   const [filter, setFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
@@ -197,6 +197,12 @@ function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignT
   const handleAssign = async (o, tailorId) => {
     try { await assignTailor(o.dbId, tailorId || null); }
     catch (e) { alert("Couldn't assign a tailor: " + e.message); }
+  };
+
+  const handleDelete = async (o) => {
+    if (!window.confirm(`Delete order ${o.id} for ${o.client}? This can't be undone.`)) return;
+    try { await deleteOrder(o.dbId); }
+    catch (e) { alert("Couldn't delete that order: " + e.message); }
   };
 
   return (
@@ -288,6 +294,11 @@ function Orders({ orders, loading, error, addOrder, advanceStage, staff, assignT
                   style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.border}`,
                     background: "transparent", color: C.muted, fontSize: 11, cursor: "pointer" }}>
                   ✏️ Edit
+                </button>
+                <button onClick={() => handleDelete(o)}
+                  style={{ padding: "5px 14px", borderRadius: 8, border: `1px solid ${C.red}44`,
+                    background: "transparent", color: C.red, fontSize: 11, cursor: "pointer" }}>
+                  🗑 Delete
                 </button>
               </div>
             </>
@@ -791,7 +802,7 @@ function AppShell() {
 
       <div style={{ padding: "20px 16px 40px" }}>
         {page === "dashboard" && <Dashboard orders={ordersState.orders} ordersLoading={ordersState.loading} customers={customersState.customers} staff={staffState.staff} />}
-        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} staff={staffState.staff} assignTailor={ordersState.assignTailor} updateOrder={ordersState.updateOrder} />}
+        {page === "orders" && <Orders orders={ordersState.orders} loading={ordersState.loading} error={ordersState.error} addOrder={ordersState.addOrder} advanceStage={ordersState.advanceStage} staff={staffState.staff} assignTailor={ordersState.assignTailor} updateOrder={ordersState.updateOrder} deleteOrder={ordersState.deleteOrder} />}
         {page === "production" && <ProductionBoard orders={ordersState.orders} loading={ordersState.loading} />}
         {page === "inventory" && <Inventory inventory={inventoryState.inventory} loading={inventoryState.loading} error={inventoryState.error} addItem={inventoryState.addItem} />}
         {page === "crm" && <CRM customers={customersState.customers} loading={customersState.loading} error={customersState.error} />}
